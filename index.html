@@ -1,0 +1,130 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Crossy Road Mini</title>
+    <style>
+        body { margin: 0; overflow: hidden; background-color: #70c5ce; font-family: sans-serif; user-select: none; }
+        #score { position: absolute; top: 30px; left: 30px; color: white; font-size: 36px; font-weight: bold; text-shadow: 2px 2px 4px rgba(0,0,0,0.5); }
+        #game-over { position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%); background: rgba(0, 0, 0, 0.8); color: white; padding: 30px 50px; border-radius: 15px; text-align: center; cursor: pointer; display: none; }
+        #game-over h1 { margin-top: 0; color: #ff4757; }
+    </style>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+</head>
+<body>
+    <div id="score">Điểm: 0</div>
+    <div id="game-over">
+        <h1>Game Over!</h1>
+        <p>Click vào đây hoặc bấm phím R để chơi lại</p>
+    </div>
+
+    <script>
+        const scene = new THREE.Scene();
+        scene.background = new THREE.Color(0x70c5ce);
+
+        const camera = new THREE.OrthographicCamera(
+            window.innerWidth / -15, window.innerWidth / 15,
+            window.innerHeight / 15, window.innerHeight / -15,
+            0.1, 1000
+        );
+        camera.position.set(20, 20, 20);
+        camera.lookAt(0, 0, 0);
+
+        const renderer = new THREE.WebGLRenderer({ antialias: true });
+        renderer.setSize(window.innerWidth, window.innerHeight);
+        document.body.appendChild(renderer.domElement);
+
+        scene.add(new THREE.AmbientLight(0xffffff, 0.6));
+        const dirLight = new THREE.DirectionalLight(0xffffff, 0.8);
+        dirLight.position.set(20, 40, 10);
+        scene.add(dirLight);
+
+        let score = 0;
+        let isGameOver = false;
+        let playerPos = { x: 0, z: 0 };
+        let lanes = [];
+        let cars = [];
+
+        const playerGroup = new THREE.Group();
+        const playerMesh = new THREE.Mesh(
+            new THREE.BoxGeometry(0.8, 0.8, 0.8),
+            new THREE.MeshLambertMaterial({ color: 0xffd700 })
+        );
+        playerMesh.position.y = 0.4;
+        playerGroup.add(playerMesh);
+        scene.add(playerGroup);
+
+        function createLane(zIndex) {
+            const isRoad = zIndex > 0 && Math.random() > 0.3;
+            const lane = new THREE.Mesh(
+                new THREE.PlaneGeometry(30, 1),
+                new THREE.MeshLambertMaterial({ color: isRoad ? 0x3d3d3d : 0x4caf50 })
+            );
+            lane.rotation.x = -Math.PI / 2;
+            lane.position.set(0, 0, -zIndex);
+            scene.add(lane);
+            lanes.push({ mesh: lane, z: -zIndex });
+
+            if (isRoad) {
+                const car = new THREE.Mesh(
+                    new THREE.BoxGeometry(1.5, 0.6, 0.8),
+                    new THREE.MeshLambertMaterial({ color: Math.random() * 0xffffff })
+                );
+                const dir = Math.random() > 0.5 ? 1 : -1;
+                car.position.set(dir > 0 ? -15 : 15, 0.3, -zIndex);
+                car.speed = (Math.random() * 0.04 + 0.03) * dir;
+                scene.add(car);
+                cars.push(car);
+            }
+        }
+
+        for (let i = -5; i < 20; i++) { createLane(i); }
+
+        window.addEventListener('keydown', (e) => {
+            if (isGameOver) {
+                if (e.key === 'r' || e.key === 'R') location.reload();
+                return;
+            }
+            let moved = false;
+            if (e.key === 'ArrowUp' || e.key === 'w') { playerPos.z -= 1; moved = true; }
+            else if (e.key === 'ArrowDown' || e.key === 's') { playerPos.z += 1; moved = true; }
+            else if (e.key === 'ArrowLeft' || e.key === 'a') { playerPos.x -= 1; moved = true; }
+            else if (e.key === 'ArrowRight' || e.key === 'd') { playerPos.x += 1; moved = true; }
+
+            if (moved) {
+                if (-playerPos.z > score) {
+                    score = -playerPos.z;
+                    document.getElementById('score').innerText = `Điểm: ${score}`;
+                    createLane(score + 19);
+                }
+                playerGroup.position.set(playerPos.x, 0, playerPos.z);
+                camera.position.z = playerPos.z + 20;
+                camera.position.x = playerPos.x + 20;
+                camera.lookAt(playerPos.x, 0, playerPos.z);
+            }
+        });
+
+        document.getElementById('game-over').addEventListener('click', () => location.reload());
+
+        function animate() {
+            requestAnimationFrame(animate);
+            if (!isGameOver) {
+                cars.forEach(car => {
+                    car.position.x += car.speed;
+                    if (car.position.x > 16) car.position.x = -16;
+                    if (car.position.x < -16) car.position.x = 16;
+
+                    if (Math.abs(car.position.x - playerGroup.position.x) < 1.0 &&
+                        Math.abs(car.position.z - playerGroup.position.z) < 0.6) {
+                        isGameOver = true;
+                        document.getElementById('game-over').style.display = 'block';
+                    }
+                });
+            }
+            renderer.render(scene, camera);
+        }
+        animate();
+    </script>
+</body>
+</html>
