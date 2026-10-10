@@ -1,1 +1,1 @@
-# crossy-road-new
+# crosy-road-news
